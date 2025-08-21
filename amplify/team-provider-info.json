@@ -1,0 +1,42 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-creativejobs-dev-8c1a3-authRole",
+      "UnauthRoleArn": "arn:aws:iam::277707099574:role/amplify-creativejobs-dev-8c1a3-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::277707099574:role/amplify-creativejobs-dev-8c1a3-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-creativejobs-dev-8c1a3-deployment",
+      "UnauthRoleName": "amplify-creativejobs-dev-8c1a3-unauthRole",
+      "StackName": "amplify-creativejobs-dev-8c1a3",
+      "StackId": "arn:aws:cloudformation:ap-south-1:277707099574:stack/amplify-creativejobs-dev-8c1a3/15fa6d90-f24a-11ef-b75b-064e6ba8285f",
+      "AmplifyAppId": "dpdb60u8fayuv"
+    },
+    "categories": {
+      "hosting": {
+        "S3AndCloudFront": {}
+      }
+    }
+  },
+  "creativejb": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-creativejobs-creativejb-20bb1-authRole",
+      "UnauthRoleArn": "arn:aws:iam::277707099574:role/amplify-creativejobs-creativejb-20bb1-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::277707099574:role/amplify-creativejobs-creativejb-20bb1-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-creativejobs-creativejb-20bb1-deployment",
+      "UnauthRoleName": "amplify-creativejobs-creativejb-20bb1-unauthRole",
+      "StackName": "amplify-creativejobs-creativejb-20bb1",
+      "StackId": "arn:aws:cloudformation:ap-south-1:277707099574:stack/amplify-creativejobs-creativejb-20bb1/d1ffa290-f258-11ef-8688-0204d9ce8353",
+      "AmplifyAppId": "dpdb60u8fayuv"
+    },
+    "categories": {
+      "hosting": {
+        "amplifyhosting": {
+          "appId": "dpdb60u8fayuv",
+          "type": "manual"
+        },
+        "S3AndCloudFront": {}
+      }
+    }
+  }
+}
