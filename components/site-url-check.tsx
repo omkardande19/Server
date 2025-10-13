@@ -36,12 +36,18 @@ export function SiteUrlCheck() {
           The NEXT_PUBLIC_SITE_URL environment variable is {!siteUrl ? "missing" : "invalid"}.
         </p>
         <pre className="bg-ink p-4 rounded-lg text-sm text-white overflow-x-auto whitespace-pre-wrap">
-          {`# .env.local or Vercel Environment Variables
+          {`# .env.local file
 
-NEXT_PUBLIC_SITE_URL=${siteUrl || "https://your-site-url.com"}`}
+# For EC2 deployment, use your public IP or domain:
+NEXT_PUBLIC_SITE_URL=http://your-ec2-public-ip:3000
+# or with domain:
+# NEXT_PUBLIC_SITE_URL=https://your-domain.com
+
+# Also configure your API URL:
+NEXT_PUBLIC_API_URL=http://your-ec2-public-ip:5000`}
         </pre>
         <p className="mt-4 text-sm text-muted-foreground">
-          Make sure the URL includes the protocol (https://) and matches your deployment URL.
+          For EC2 deployment, use your server's public IP address or domain name. Make sure the URL includes the protocol (http:// or https://).
         </p>
       </Card>
     </div>

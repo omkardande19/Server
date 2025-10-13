@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Icons } from "@/components/icons"
 import { Card } from "@/components/ui/card"
-import { supabase } from "@/lib/supabase"
-import { SupabaseConfigCheck } from "@/components/supabase-config-check"
+import { resetPassword } from "@/lib/api"
 
 const formSchema = z
   .object({
@@ -30,6 +29,7 @@ export default function ResetPasswordPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isValidSession, setIsValidSession] = useState(false)
+  const [token, setToken] = useState<string | null>(null)
   const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -41,27 +41,19 @@ export default function ResetPasswordPage() {
   })
 
   useEffect(() => {
-    // Check if we have a valid session for password reset
-    const checkSession = async () => {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession()
-
-      if (error || !session) {
-        toast({
-          variant: "destructive",
-          title: "Invalid session",
-          description: "Please use the reset link from your email.",
-        })
-        router.push("/forgot-password")
-        return
-      }
-
-      setIsValidSession(true)
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get("token")
+    if (!t) {
+      toast({
+        variant: "destructive",
+        title: "Invalid or missing token",
+        description: "Please use the reset link from your email.",
+      })
+      router.push("/forgot-password")
+      return
     }
-
-    checkSession()
+    setToken(t)
+    setIsValidSession(true)
   }, [router, toast])
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -77,21 +69,14 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: values.password,
-      })
-
-      if (error) {
-        throw error
-      }
+      if (!token) throw new Error("Missing token")
+      await resetPassword(token, values.password)
 
       toast({
         title: "Password updated",
         description: "Your password has been successfully reset.",
       })
 
-      // Sign out the user and redirect to login
-      await supabase.auth.signOut()
       router.push("/login")
     } catch (error) {
       console.error("Password reset error:", error)
@@ -111,7 +96,6 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="container flex h-screen w-full flex-col items-center justify-center">
-      <SupabaseConfigCheck />
       <Card className="w-full max-w-lg space-y-6 p-8 bg-ink-light border-ink">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-white">Reset your password</h1>

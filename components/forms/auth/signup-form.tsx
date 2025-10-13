@@ -1,25 +1,26 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Amplify } from 'aws-amplify'
-import { signUp as amplifySignUp, confirmSignUp, resendSignUpCode } from 'aws-amplify/auth'
-import axios from 'axios'
-import awsConfig from '@/aws-exports'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useToast } from "@/components/ui/use-toast"
-import { Icons } from "@/components/icons"
-import { Card } from "@/components/ui/card"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/components/ui/use-toast";
+import { Icons } from "@/components/icons";
+import { signup } from "@/lib/api"; // ✅ use centralized API
 
-Amplify.configure(awsConfig)
-
+// Validation schema
 const formSchema = z.object({
   name: z.string().min(2, {
     message: "Name must be at least 2 characters.",
@@ -38,15 +39,14 @@ const formSchema = z.object({
   terms: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms and conditions.",
   }),
-})
+});
 
-type FormData = z.infer<typeof formSchema>
+type FormData = z.infer<typeof formSchema>;
 
 export function SignUpForm() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [emailSent, setEmailSent] = useState(false)
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -59,152 +59,50 @@ export function SignUpForm() {
       companyType: "",
       terms: false,
     },
-  })
+  });
 
   async function onSubmit(values: FormData) {
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      const signUpResult = await amplifySignUp({
-        username: values.email,
+      // Map form values to backend schema
+      const payload = {
+        fullName: values.name,
+        emailId: values.email,
         password: values.password,
-        options: {
-          userAttributes: {
-            email: values.email,
-          }
-        },
-      })
+        userCategory: values.userType,
+        userCategoryType:
+          values.userType === "artist"
+            ? values.artistType
+            : values.companyType,
+      };
 
-      console.log('Sign-up successful:', signUpResult)
-      setEmailSent(true)
-      
+      const result = await signup(payload);
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Signup successful! Please login.",
+        });
+        router.push("/login");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.message || "Signup failed.",
+        });
+      }
     } catch (error: any) {
-      console.error('Signup error:', error)
+      console.error("Signup error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error?.message || "Something went wrong. Please try again.",
-      })
+        description:
+          error?.response?.data?.message || "Server error. Please try again.",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
-  async function onVerificationComplete() {
-    try {
-      // Log the values before sending to the API
-      const emailId = form.getValues('email');
-      const fullName = form.getValues('name');
-      const userCategory = form.getValues('userType');
-      const userCategoryType = form.getValues('userType') === 'artist' ? form.getValues('artistType') : form.getValues('companyType');
-
-      console.log('Sending user data to API:', {
-        emailId,
-        fullName,
-        userCategory,
-        userCategoryType,
-      });
-
-      // Send user data to the API Gateway endpoint
-      const response = await axios.post('https://to58hqa8w7.execute-api.ap-south-1.amazonaws.com/prod/users', {
-        emailId,
-        fullName,
-        userCategory,
-        userCategoryType,
-        // Add other fields as necessary
-      });
-
-      console.log('User data saved:', response.data);
-
-      toast({
-        title: "Success",
-        description: "Email verified successfully. You can now login.",
-      });
-
-      router.push('/login');
-      router.refresh();
-    } catch (error: any) {
-      console.error('Error saving user data:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error?.message || "Failed to save user data. Please try again.",
-      });
-    }
-  }
-
-  if (emailSent) {
-    return (
-      <Card className="p-6 bg-ink-light border-ink">
-        <h2 className="text-xl font-semibold text-white mb-4">Verify your email</h2>
-        <p className="text-muted-foreground mb-6">
-          We've sent a verification code to your email. Please enter the code below to complete your registration.
-        </p>
-        <form onSubmit={async (e) => {
-          e.preventDefault();
-          const code = (e.target as any).code.value;
-          
-          try {
-            await confirmSignUp({
-              username: form.getValues('email'),
-              confirmationCode: code,
-            });
-            
-            await onVerificationComplete();
-          } catch (error: any) {
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: error?.message || "Failed to verify email. Please try again.",
-            });
-          }
-        }} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="code" className="text-white">
-              Verification Code
-            </Label>
-            <Input
-              id="code"
-              placeholder="Enter verification code"
-              type="text"
-              className="bg-ink-light border-ink text-white"
-            />
-          </div>
-          
-          <div className="space-y-4">
-            <Button type="submit" className="w-full">
-              Verify Email
-            </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              Didn't receive the code?{" "}
-              <Button
-                variant="link"
-                className="text-primary"
-                onClick={async () => {
-                  try {
-                    await resendSignUpCode({
-                      username: form.getValues('email'),
-                    });
-                    toast({
-                      title: "Success",
-                      description: "Verification code resent to your email.",
-                    });
-                  } catch (error: any) {
-                    toast({
-                      variant: "destructive",
-                      title: "Error",
-                      description: error?.message || "Failed to resend code. Please try again.",
-                    });
-                  }
-                }}
-              >
-                Resend Code
-              </Button>
-            </p>
-          </div>
-        </form>
-      </Card>
-    )
   }
 
   return (
@@ -221,7 +119,6 @@ export function SignUpForm() {
           {...form.register("name")}
           className="bg-ink-light border-ink text-white"
         />
-        {form.formState.errors.name && <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -236,7 +133,6 @@ export function SignUpForm() {
           {...form.register("email")}
           className="bg-ink-light border-ink text-white"
         />
-        {form.formState.errors.email && <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -251,27 +147,27 @@ export function SignUpForm() {
           {...form.register("password")}
           className="bg-ink-light border-ink text-white"
         />
-        {form.formState.errors.password && (
-          <p className="text-sm text-red-500">{form.formState.errors.password.message}</p>
-        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="userType" className="text-white">
           Account Type
         </Label>
-        <Select onValueChange={(value) => form.setValue("userType", value as "artist" | "company")}>
+        <Select
+          onValueChange={(value) =>
+            form.setValue("userType", value as "artist" | "company")
+          }
+        >
           <SelectTrigger className="bg-ink-light border-ink text-white">
             <SelectValue placeholder="Select your account type" />
           </SelectTrigger>
           <SelectContent className="bg-ink-light border-ink">
-            <SelectItem value="artist">Artist / Creative Professional</SelectItem>
+            <SelectItem value="artist">
+              Artist / Creative Professional
+            </SelectItem>
             <SelectItem value="company">Company / Organization</SelectItem>
           </SelectContent>
         </Select>
-        {form.formState.errors.userType && (
-          <p className="text-sm text-red-500">{form.formState.errors.userType.message}</p>
-        )}
       </div>
 
       {form.watch("userType") === "artist" && (
@@ -279,7 +175,9 @@ export function SignUpForm() {
           <Label htmlFor="artistType" className="text-white">
             Artist Type
           </Label>
-          <Select onValueChange={(value) => form.setValue("artistType", value)}>
+          <Select
+            onValueChange={(value) => form.setValue("artistType", value)}
+          >
             <SelectTrigger className="bg-ink-light border-ink text-white">
               <SelectValue placeholder="Select your primary art form" />
             </SelectTrigger>
@@ -300,7 +198,9 @@ export function SignUpForm() {
           <Label htmlFor="companyType" className="text-white">
             Organization Type
           </Label>
-          <Select onValueChange={(value) => form.setValue("companyType", value)}>
+          <Select
+            onValueChange={(value) => form.setValue("companyType", value)}
+          >
             <SelectTrigger className="bg-ink-light border-ink text-white">
               <SelectValue placeholder="Select your organization type" />
             </SelectTrigger>
@@ -309,7 +209,9 @@ export function SignUpForm() {
               <SelectItem value="theatre">Theatre Company</SelectItem>
               <SelectItem value="music_studio">Music Studio</SelectItem>
               <SelectItem value="dance_academy">Dance Academy</SelectItem>
-              <SelectItem value="production_house">Production House</SelectItem>
+              <SelectItem value="production_house">
+                Production House
+              </SelectItem>
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
@@ -319,20 +221,20 @@ export function SignUpForm() {
       <div className="flex items-center space-x-2">
         <Checkbox
           id="terms"
-          onCheckedChange={(checked) => form.setValue("terms", checked === true)}
+          onCheckedChange={(checked) =>
+            form.setValue("terms", checked === true)
+          }
           className="border-ink data-[state=checked]:bg-primary"
         />
         <label htmlFor="terms" className="text-sm text-muted-foreground">
           I agree to the terms and conditions
         </label>
       </div>
-      {form.formState.errors.terms && <p className="text-sm text-red-500">{form.formState.errors.terms.message}</p>}
 
       <Button className="w-full" type="submit" disabled={isLoading}>
         {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
         Create Account
       </Button>
     </form>
-  )
+  );
 }
-

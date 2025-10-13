@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Bell, MessageCircle, User, LogOut, Menu } from "lucide-react"
+import { Search, Bell, MessageCircle, User, LogOut, Menu, Home, Settings } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { usePathname, useRouter } from "next/navigation"
 import { getCurrentUser, signOut } from 'aws-amplify/auth'
 
@@ -118,38 +119,53 @@ function HeaderContent() {
         {/* Desktop Actions - Hidden on mobile */}
         <div className="hidden md:flex items-center justify-end flex-1 space-x-2">
           {!currentUser ? (
-            <>
-              <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90 text-white mr-2">
-                <Link href="/signup">Sign Up</Link>
-              </Button>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-ink-hover">
-                <Link href="/login">Sign In</Link>
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-ink-hover">
+                  <User className="h-5 w-5" />
+                  <span>Account</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-ink-light border-ink">
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/login')}>
+                  <span>Sign In</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/signup')}>
+                  <span>Sign Up</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-ink-hover">
-                    <span>{userName}</span>
-                    <User className="h-5 w-5"/>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-ink-light border-ink">
-                  <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => {
-                    console.log('Navigating to profile');
-                    router.push('/profile');
-                  }}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-ink-hover">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src="/placeholder-user.jpg" alt={userName || 'User'} />
+                    <AvatarFallback>{(userName || 'U').charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <span>{userName}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-ink-light border-ink">
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/dashboard')}>
+                  <Home className="mr-2 h-4 w-4" />
+                  <span>Dashboard</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/profile')}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-ink" />
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 

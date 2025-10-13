@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,10 +17,13 @@ import {
   Theater,
   BookOpen,
   Mic2,
+  History,
 } from "lucide-react"
 
 export default function LeftSidebar() {
   const pathname = usePathname()
+  const [isCompany, setIsCompany] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
   console.log('LeftSidebar - Current pathname:', pathname) // Debug log
 
@@ -36,6 +40,21 @@ export default function LeftSidebar() {
     return null
   }
 
+  useEffect(() => {
+    setIsClient(true)
+    try {
+      const storedUser = sessionStorage.getItem('user')
+      if (storedUser) {
+        const u = JSON.parse(storedUser)
+        setIsCompany(u?.userCategory === 'company')
+      } else {
+        setIsCompany(false)
+      }
+    } catch {
+      setIsCompany(false)
+    }
+  }, [pathname])
+
   return (
     <div className="fixed left-0 top-[64px] bottom-0 hidden md:block 
       w-[210px] border-r border-ink bg-ink-light p-4">
@@ -46,7 +65,9 @@ export default function LeftSidebar() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start text-white hover:bg-ink-hover"
+                className={`w-full justify-start text-white hover:bg-ink-hover ${
+                  pathname === '/dashboard' ? 'bg-ink-hover border-l-2 border-primary' : ''
+                }`}
               >
                 <Home className="mr-2 h-4 w-4" />
                 Home
@@ -62,26 +83,82 @@ export default function LeftSidebar() {
                 Network
               </Button>
             </Link> */}
-            <Link href="/messages">
+            <Link href="/events">
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start text-white hover:bg-ink-hover"
+                className={`w-full justify-start text-white hover:bg-ink-hover ${
+                  pathname.startsWith('/events') ? 'bg-ink-hover border-l-2 border-primary' : ''
+                }`}
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Events
               </Button>
             </Link>
-            <Link href="/opportunities">
+            <Link href="/network">
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start text-white hover:bg-ink-hover"
+                className={`w-full justify-start text-white hover:bg-ink-hover ${
+                  pathname.startsWith('/network') ? 'bg-ink-hover border-l-2 border-primary' : ''
+                }`}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Network
+              </Button>
+            </Link>
+            <Link href="/messages">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`w-full justify-start text-white hover:bg-ink-hover ${
+                  pathname.startsWith('/messages') ? 'bg-ink-hover border-l-2 border-primary' : ''
+                }`}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Messages
+              </Button>
+            </Link>
+            <Link href="/jobs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`w-full justify-start text-white hover:bg-ink-hover ${
+                  pathname.startsWith('/jobs') ? 'bg-ink-hover border-l-2 border-primary' : ''
+                }`}
               >
                 <Briefcase className="mr-2 h-4 w-4" />
                 Jobs
               </Button>
             </Link>
+          {isClient && isCompany && (
+            <>
+              <Link href="/jobs/new">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`w-full justify-start text-white hover:bg-ink-hover ${
+                    pathname === '/jobs/new' ? 'bg-ink-hover border-l-2 border-primary' : ''
+                  }`}
+                >
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  Post Job
+                </Button>
+              </Link>
+              <Link href="/jobs/history">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`w-full justify-start text-white hover:bg-ink-hover ${
+                    pathname === '/jobs/history' ? 'bg-ink-hover border-l-2 border-primary' : ''
+                  }`}
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  Job History
+                </Button>
+              </Link>
+            </>
+          )}
             <Link href="https://www.youtube.com/@Artistkatta-famous">
               <Button
                 variant="ghost"
