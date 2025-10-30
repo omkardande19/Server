@@ -1,0 +1,22 @@
+# Env files
+.env
+.env.*
+.env.local
+
+# Node/Build
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# Logs/OS
+*.log
+.DS_Store
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+*.db
