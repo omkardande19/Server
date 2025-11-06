@@ -18,7 +18,7 @@ export default function JobsPageClient() {
     try {
       setLoading(true)
       const data = await listJobs(q ? { q } : undefined)
-      setJobs(data)
+      setJobs(data.jobs || [])
     } catch (err) {
       console.error("Failed to load jobs", err)
     } finally {

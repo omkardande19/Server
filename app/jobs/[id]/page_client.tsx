@@ -20,7 +20,7 @@ export default function JobDetailClient() {
       try {
         setLoading(true)
         const jobData = await getJob(params.id as string)
-        setJob(jobData)
+        setJob(jobData.job || jobData)
       } catch (err) {
         console.error("Failed to load job", err)
         setError("Job not found")

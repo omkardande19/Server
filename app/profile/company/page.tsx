@@ -7,12 +7,14 @@ import {
   Edit,
   MapPin,
   Mail,
- 
   Building2,
   Globe,
   Instagram,
   Linkedin,
   Phone,
+  Share2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@radix-ui/react-dialog";
 import { DialogHeader } from "@/components/ui/dialog";
+import { ImageUpload } from "@/components/file-upload";
+import { updateUserProfile } from "@/lib/api";
 import axios from "axios";
 
 // Define the type for companyData
@@ -267,108 +271,163 @@ export default function CompanyProfilePage() {
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [originalData, setOriginalData] = useState<CompanyData | null>(null);
 
-  // Local file states for images
-  const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
-  const [localProfileFile, setLocalProfileFile] = useState<File | null>(null);
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<{
+    coverImage?: { url: string; key: string };
+    profileImage?: { url: string; key: string };
+  }>({});
 
-  // Refs for hidden file inputs
-  const coverFileInputRef = useRef<HTMLInputElement>(null);
-  const profileFileInputRef = useRef<HTMLInputElement>(null);
+  // Edit mode state
+  const [isEditingCover, setIsEditingCover] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  
+  // Share state
+  const [shareCopied, setShareCopied] = useState(false);
 
   // -----------------------------------
-  // Fetch and map company data from sessionStorage
+  // Fetch and map company data from API
   // -----------------------------------
   useEffect(() => {
-    const storedData = sessionStorage.getItem("user");
-    if (!storedData) {
-      router.push("/login");
-      return;
-    }
-    try {
-      const data = JSON.parse(storedData);
-      const mappedCompany: CompanyData = {
-        id: data.userId,
-        name: data.fullName,
-        city: data.city || "",
-        aboutAgency: data.aboutAgency || "",
-        website: data.website || "",
-        email: data.emailId,
-        phoneNumber: data.phoneNumber || "",
-        establishedYear: data.establishedYear || "",
-        coverImage: data.coverImage || "",
-        profileImage: data.profileImage || "",
-        linkedin: data.linkedin || "",
-        instagram: data.instagram || "",
-        userCategory: data.userCategory || "company",
-        emailId: ""
-      };
-      setCompanyData(mappedCompany);
-      setOriginalData(mappedCompany);
-    } catch (error) {
-      console.error("Error parsing company data:", error);
-      router.push("/login");
-    }
-    setIsLoading(false);
+    const loadCompanyData = async () => {
+      const storedData = sessionStorage.getItem("user");
+      if (!storedData) {
+        router.push("/login");
+        return;
+      }
+
+      try {
+        // First try to get fresh data from API
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://ec2-15-206-211-190.ap-south-1.compute.amazonaws.com:5001/api"}/me`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            
+            if (response.ok) {
+              const apiData = await response.json();
+              if (apiData.success && apiData.user) {
+                const data = apiData.user;
+                const mappedCompany: CompanyData = {
+                  id: data.userId || data._id,
+                  name: data.fullName,
+                  city: data.city || "",
+                  aboutAgency: data.aboutAgency || "",
+                  website: data.website || "",
+                  email: data.emailId,
+                  phoneNumber: data.phoneNumber || "",
+                  establishedYear: data.establishedYear || "",
+                  coverImage: data.coverImage || "",
+                  profileImage: data.profileImage || "",
+                  linkedin: data.linkedin || "",
+                  instagram: data.instagram || "",
+                  userCategory: data.userCategory || "company",
+                  emailId: ""
+                };
+                setCompanyData(mappedCompany);
+                setOriginalData(mappedCompany);
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (apiError) {
+            console.log("API fetch failed, using sessionStorage:", apiError);
+          }
+        }
+        
+        // Fallback to sessionStorage
+        const data = JSON.parse(storedData);
+        const mappedCompany: CompanyData = {
+          id: data.userId,
+          name: data.fullName,
+          city: data.city || "",
+          aboutAgency: data.aboutAgency || "",
+          website: data.website || "",
+          email: data.emailId,
+          phoneNumber: data.phoneNumber || "",
+          establishedYear: data.establishedYear || "",
+          coverImage: data.coverImage || "",
+          profileImage: data.profileImage || "",
+          linkedin: data.linkedin || "",
+          instagram: data.instagram || "",
+          userCategory: data.userCategory || "company",
+          emailId: ""
+        };
+        setCompanyData(mappedCompany);
+        setOriginalData(mappedCompany);
+      } catch (error) {
+        console.error("Error parsing company data:", error);
+        router.push("/login");
+      }
+      setIsLoading(false);
+    };
+
+    loadCompanyData();
   }, [router]);
 
   // -----------------------------------
-  // Upload helper: convert file to base64 and call the upload API
+  // File upload handlers for S3
   // -----------------------------------
-  const uploadFile = async (file: File, folder: string) => {
+  const handleCoverImageUpload = (url: string, key: string) => {
+    setUploadedFiles(prev => ({ ...prev, coverImage: { url, key } }));
+    setCompanyData((prev) =>
+      prev ? { ...prev, coverImage: url } : null
+    );
+  };
+
+  const handleProfileImageUpload = (url: string, key: string) => {
+    setUploadedFiles(prev => ({ ...prev, profileImage: { url, key } }));
+    setCompanyData((prev) =>
+      prev ? { ...prev, profileImage: url } : null
+    );
+  };
+
+  // Share profile function
+  const handleShareProfile = async () => {
     try {
-      const fileBuffer = await file.arrayBuffer();
-      const base64File = Buffer.from(fileBuffer).toString("base64");
-
-      const payload = {
-        file: base64File,
-        folder: "images", // always images for companies
-        filename: file.name,
-        contentType: file.type,
-      };
-
-      const response = await fetch(
-        "https://to58hqa8w7.execute-api.ap-south-1.amazonaws.com/prod/uploads",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload file");
+      const profileUrl = `${window.location.origin}/profile/company?id=${companyData?.id}`;
+      
+      // Try Web Share API if available (mobile)
+      if (navigator.share) {
+        await navigator.share({
+          title: `${companyData?.name}'s Profile - ArtistKatta`,
+          text: `Check out ${companyData?.name}'s profile on ArtistKatta`,
+          url: profileUrl,
+        });
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(profileUrl);
+        setShareCopied(true);
+        toast({ 
+          title: "Link Copied!", 
+          description: "Profile link has been copied to clipboard." 
+        });
+        
+        setTimeout(() => setShareCopied(false), 2000);
       }
-      const data = await response.json();
-      return data.publicUrl;
     } catch (error) {
-      console.error("Error in uploadFile:", error);
-      throw error;
+      // Fallback: Copy to clipboard if share fails
+      try {
+        const profileUrl = `${window.location.origin}/profile/company?id=${companyData?.id}`;
+        await navigator.clipboard.writeText(profileUrl);
+        setShareCopied(true);
+        toast({ 
+          title: "Link Copied!", 
+          description: "Profile link has been copied to clipboard." 
+        });
+        setTimeout(() => setShareCopied(false), 2000);
+      } catch (clipboardError) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to share profile. Please try again.",
+        });
+      }
     }
   };
 
-  // -----------------------------------
-  // File change handlers
-  // -----------------------------------
-  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setLocalCoverFile(file);
-      setCompanyData((prev) =>
-        prev ? { ...prev, coverImage: URL.createObjectURL(file) } : null
-      );
-    }
-  };
-
-  const handleProfileFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setLocalProfileFile(file);
-      setCompanyData((prev) =>
-        prev ? { ...prev, profileImage: URL.createObjectURL(file) } : null
-      );
-    }
-  };
 
   // -----------------------------------
   // Input handling for text fields
@@ -387,20 +446,19 @@ export default function CompanyProfilePage() {
     if (!companyData) return;
   
     setIsSaving(true);
-    let updatedData = { ...companyData };
+    const updatedData = { ...companyData };
   
     try {
-      // Upload files if new ones are selected
-      if (localCoverFile) {
-        updatedData.coverImage = await uploadFile(localCoverFile, "images");
+      // Use uploaded file URLs if available
+      if (uploadedFiles.coverImage) {
+        updatedData.coverImage = uploadedFiles.coverImage.url;
       }
-      if (localProfileFile) {
-        updatedData.profileImage = await uploadFile(localProfileFile, "images");
+      if (uploadedFiles.profileImage) {
+        updatedData.profileImage = uploadedFiles.profileImage.url;
       }
   
-      // Construct payload, ensuring all fields have default values
+      // Prepare payload for MongoDB backend
       const payload = {
-        userId: updatedData.id || "",
         fullName: updatedData.name || "",
         userCategory: updatedData.userCategory || "company",
         phoneNumber: updatedData.phoneNumber || "",
@@ -414,50 +472,42 @@ export default function CompanyProfilePage() {
         city: updatedData.city || "",
       };
   
-      console.log("🚀 Sending Payload:", JSON.stringify(payload, null, 2));
+      console.log("Sending payload to MongoDB API:", JSON.stringify(payload, null, 2));
   
-      // Make API request
-      const response = await fetch(EDIT_USER_ENDPOINT, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("API Error Response:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText,
-        });
-        throw new Error(`Failed to update profile: ${errorText}`);
-      }
-
-      const result = await response.json();
+      // Use MongoDB backend API
+      const result = await updateUserProfile(payload);
       console.log("Update result:", result);
 
-      // Update sessionStorage with the new user details so that refresh pulls updated values
-    
-      // Update sessionStorage only if user data is returned
-      if (result.user) {
-        sessionStorage.setItem("user", JSON.stringify(result.user));
+      if (result.success) {
+        // Update sessionStorage with the new user details
+        const currentUser = JSON.parse(sessionStorage.getItem("user") || "{}");
+        const updatedUser = { ...currentUser, ...result.user };
+        sessionStorage.setItem("user", JSON.stringify(updatedUser));
+
+        toast({ 
+          title: "Success", 
+          description: "Profile updated successfully. Redirecting to dashboard..." 
+        });
+        
         setCompanyData(updatedData);
         setOriginalData(updatedData);
+
+        // Clear uploaded file states after successful save
+        setUploadedFiles({});
+
+        // Redirect to dashboard after 1.5 seconds
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1500);
+      } else {
+        throw new Error(result.message || "Failed to update profile");
       }
-  
-      // Show success toast
-      toast({ title: "Success", description: "Company profile updated successfully." });
-  
-      // Reset file states after successful upload
-      setLocalCoverFile(null);
-      setLocalProfileFile(null);
     } catch (error) {
-      console.error("❌ Save Changes Error:", error);
+      console.error("Save changes error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to update company profile.",
+        description: error instanceof Error ? error.message : "Failed to update profile.",
       });
     } finally {
       setIsSaving(false);
@@ -520,22 +570,28 @@ export default function CompanyProfilePage() {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink to-transparent" />
-        <Button
-          size="sm"
-          variant="secondary"
-          className="absolute top-4 right-4 bg-ink-light/80 hover:bg-ink-hover"
-          onClick={() => coverFileInputRef.current?.click()}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Cover
-        </Button>
-        <input
-          type="file"
-          accept="image/*"
-          ref={coverFileInputRef}
-          onChange={handleCoverFileChange}
-          className="hidden"
-        />
+        <div className="absolute top-4 right-4">
+          {isEditingCover ? (
+            <ImageUpload
+              onUploadComplete={(url, key) => {
+                handleCoverImageUpload(url, key);
+                setIsEditingCover(false);
+              }}
+              folder="images"
+              className="inline-block"
+            />
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="bg-ink-light/80 hover:bg-ink-hover"
+              onClick={() => setIsEditingCover(true)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Cover
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Profile Header */}
@@ -560,28 +616,52 @@ export default function CompanyProfilePage() {
                 priority
               />
             )}
-            <Button
-              size="sm"
-              variant="secondary"
-              className="absolute bottom-2 right-2 bg-ink-light/80 hover:bg-ink-hover"
-              onClick={() => profileFileInputRef.current?.click()}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Logo
-            </Button>
-            <input
-              type="file"
-              accept="image/*"
-              ref={profileFileInputRef}
-              onChange={handleProfileFileChange}
-              className="hidden"
-            />
+            <div className="absolute bottom-2 right-2">
+              {isEditingProfile ? (
+                <ImageUpload
+                  onUploadComplete={(url, key) => {
+                    handleProfileImageUpload(url, key);
+                    setIsEditingProfile(false);
+                  }}
+                  folder="images"
+                  className="inline-block"
+                />
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="bg-ink-light/80 hover:bg-ink-hover"
+                  onClick={() => setIsEditingProfile(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Logo
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Company Name, Type, and Location */}
           <div className="mb-8 flex-1">
             <div className="flex items-center space-x-4">
               <h1 className="text-3xl font-bold text-white">{companyData.name}</h1>
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-transparent border-white/20 text-white hover:bg-white/10"
+                onClick={handleShareProfile}
+              >
+                {shareCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share Profile
+                  </>
+                )}
+              </Button>
             </div>
             <h2 className="mt-1 text-xl text-muted-foreground">{companyData.userCategoryType}</h2>
             <div className="mt-2 flex items-center space-x-4 text-muted-foreground">

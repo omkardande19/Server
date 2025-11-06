@@ -16,6 +16,18 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.s3.ap-south-1.amazonaws.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "artistkatta-uploads.s3.ap-south-1.amazonaws.com",
+        pathname: "/**",
+      },
+    ],
   },
 }
 

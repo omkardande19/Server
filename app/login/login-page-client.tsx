@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -17,6 +17,12 @@ export default function LoginPageClient() {
     const [form, setForm] = useState({ emailId: "", password: "" });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [logoReady, setLogoReady] = useState(false);
+
+    useEffect(() => {
+        const t = setTimeout(() => setLogoReady(true), 50);
+        return () => clearTimeout(t);
+    }, []);
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
         const { name, value } = e.target;
@@ -59,14 +65,18 @@ export default function LoginPageClient() {
 
     const content = (
         <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-            {/* Global top-right logo for all breakpoints */}
-            <div className="absolute right-4 top-4 z-30">
+            {/* Global top-right logo with entrance animation */}
+            <div
+                className={`absolute right-4 top-4 z-30 transition-all duration-700 ease-out
+                    ${logoReady ? "opacity-100 translate-x-0 scale-100" : "opacity-0 -translate-x-10 scale-95"}
+                `}
+            >
                 <Image
                     src="/images/app-logo2.png"
                     alt="Artist Katta Logo"
                     width={160}
                     height={64}
-                    className="object-contain"
+                    className="object-contain drop-shadow-md"
                     priority
                 />
             </div>
@@ -80,18 +90,20 @@ export default function LoginPageClient() {
                         className="object-cover opacity-80 brightness-110"
                     />
                 </div>
-                <div className="relative z-20 mt-auto">
-                    <blockquote className="space-y-2">
-                        <p className="text-lg">
-                            &ldquo;Welcome back to your creative community. Let's continue your artistic journey.&rdquo;
-                        </p>
-                        <footer className="text-sm">Artist Katta Community</footer>
-                    </blockquote>
-                </div>
+                {/* Quote moved to right panel */}
             </div>
 
             {/* Right side login form */}
-            <div className="lg:p-8">
+            <div className="relative lg:p-8 min-h-[80vh] lg:min-h-screen">
+                {/* Quote pinned to bottom-right corner of the right panel */}
+                <div className="absolute bottom-4 right-4 text-right text-muted-foreground max-w-[280px]">
+                    <blockquote className="space-y-2">
+                        <p className="text-sm italic">
+                            &ldquo;Welcome back to your creative community. Let's continue your artistic journey.&rdquo;
+                        </p>
+                        <footer className="text-xs">Artist Katta Community</footer>
+                    </blockquote>
+                </div>
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                     <div className="flex flex-col space-y-2 text-center">
                         <h1 className="text-2xl font-semibold tracking-tight text-white">Welcome back</h1>

@@ -56,6 +56,7 @@ export default function NetworkPage() {
 
   const loadNetworkData = async () => {
     try {
+      setLoading(true)
       // Load connections, requests, and activities in parallel
       const [connectionsRes, requestsRes, activitiesRes] = await Promise.all([
         getConnections({ status: "accepted" }),
@@ -66,10 +67,13 @@ export default function NetworkPage() {
       setConnections(connectionsRes.connections || [])
       setConnectionRequests(requestsRes.requests || [])
       setActivities(activitiesRes.activities || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading network data:", error)
+      alert(error.message || "Failed to load network data. Please try again.")
       // Fallback to dummy data if API fails
       loadDummyData()
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -118,51 +122,61 @@ export default function NetworkPage() {
 
   const handleConnectionRequest = async (userId: string) => {
     try {
-      await sendConnectionRequest({ 
+      const response = await sendConnectionRequest({ 
         recipientId: userId, 
         message: "Hi! I'd like to connect with you.",
         connectionType: "professional"
       })
       
-      // Update UI optimistically
-      setSearchResults(prev => 
-        prev.map(user => 
-          user._id === userId 
-            ? { ...user, connectionStatus: "pending" }
-            : user
+      if (response.success) {
+        // Update UI optimistically
+        setSearchResults(prev => 
+          prev.map(user => 
+            user._id === userId 
+              ? { ...user, connectionStatus: "pending" }
+              : user
+          )
         )
-      )
-    } catch (error) {
+        alert("Connection request sent successfully!")
+      }
+    } catch (error: any) {
       console.error("Connection request error:", error)
+      alert(error.message || "Failed to send connection request. Please try again.")
     }
   }
 
   const handleConnectionResponse = async (connectionId: string, status: "accepted" | "declined") => {
     try {
-      await respondToConnectionRequest(connectionId, status)
+      const response = await respondToConnectionRequest(connectionId, status)
       
-      // Update UI optimistically
-      setConnectionRequests(prev => 
-        prev.filter(req => req._id !== connectionId)
-      )
-      
-      if (status === "accepted") {
-        // Add to connections
-        const request = connectionRequests.find(req => req._id === connectionId)
-        if (request) {
-          const newConnection = {
-            _id: connectionId,
-            requester: request.requester,
-            recipient: { fullName: "You", userCategory: "company" },
-            status: "accepted",
-            connectionType: "professional",
-            createdAt: new Date().toISOString()
+      if (response.success) {
+        // Update UI optimistically
+        setConnectionRequests(prev => 
+          prev.filter(req => req._id !== connectionId)
+        )
+        
+        if (status === "accepted") {
+          // Add to connections
+          const request = connectionRequests.find(req => req._id === connectionId)
+          if (request) {
+            const newConnection = {
+              _id: connectionId,
+              requester: request.requester,
+              recipient: { fullName: "You", userCategory: "company" },
+              status: "accepted",
+              connectionType: "professional",
+              createdAt: new Date().toISOString()
+            }
+            setConnections(prev => [newConnection, ...prev])
           }
-          setConnections(prev => [newConnection, ...prev])
+          alert("Connection accepted!")
+        } else {
+          alert("Connection request declined.")
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Connection response error:", error)
+      alert(error.message || "Failed to respond to connection request. Please try again.")
     }
   }
 
@@ -189,11 +203,14 @@ export default function NetworkPage() {
   const handleMessageUser = async (userId: string) => {
     try {
       // Get or create conversation with the user
-      await getConversation(userId)
-      // Navigate to messages page
-      router.push('/messages')
-    } catch (error) {
+      const response = await getConversation(userId)
+      if (response.success) {
+        // Navigate to messages page
+        router.push('/messages')
+      }
+    } catch (error: any) {
       console.error("Error starting conversation:", error)
+      alert(error.message || "Failed to start conversation. Please try again.")
     }
   }
 
@@ -235,24 +252,63 @@ export default function NetworkPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4 mb-6">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search by name, company, or location..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    className="pl-10 bg-[#2a2a2a] border-[#3f3f3f] text-white"
-                  />
+              <div className="space-y-4 mb-6">
+                <div className="flex gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by name, company, or location..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                      className="pl-10 bg-[#2a2a2a] border-[#3f3f3f] text-white"
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleSearch}
+                    disabled={loading || searchQuery.length < 2}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    {loading ? "Searching..." : "Search"}
+                  </Button>
                 </div>
-                <Button 
-                  onClick={handleSearch}
-                  disabled={loading || searchQuery.length < 2}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  {loading ? "Searching..." : "Search"}
-                </Button>
+                
+                {/* Advanced Search Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <select className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2">
+                    <option value="">All Categories</option>
+                    <option value="actor">Actors</option>
+                    <option value="musician">Musicians</option>
+                    <option value="painter">Painters</option>
+                    <option value="director">Directors</option>
+                    <option value="technician">Technicians</option>
+                  </select>
+                  
+                  <select className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2">
+                    <option value="">All Locations</option>
+                    <option value="mumbai">Mumbai</option>
+                    <option value="delhi">Delhi</option>
+                    <option value="bangalore">Bangalore</option>
+                    <option value="chennai">Chennai</option>
+                    <option value="hyderabad">Hyderabad</option>
+                  </select>
+                  
+                  <select className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2">
+                    <option value="">Experience</option>
+                    <option value="0-2">0-2 years</option>
+                    <option value="3-5">3-5 years</option>
+                    <option value="6-10">6-10 years</option>
+                    <option value="10+">10+ years</option>
+                  </select>
+                  
+                  <select className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2">
+                    <option value="">Availability</option>
+                    <option value="full-time">Full-time</option>
+                    <option value="part-time">Part-time</option>
+                    <option value="freelance">Freelance</option>
+                    <option value="project-based">Project-based</option>
+                  </select>
+                </div>
               </div>
 
               {/* Search Results */}

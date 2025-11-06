@@ -54,8 +54,9 @@ export default function MessagesPage() {
     try {
       const response = await getConversations()
       setConversations(response.conversations || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading conversations:", error)
+      alert(error.message || "Failed to load conversations. Please try again.")
     }
   }
 
@@ -67,8 +68,9 @@ export default function MessagesPage() {
       
       // Mark messages as read
       await markMessagesAsRead(conversationId)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading messages:", error)
+      alert(error.message || "Failed to load messages. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -83,19 +85,22 @@ export default function MessagesPage() {
         content: newMessage.trim()
       })
 
-      setMessages(prev => [...prev, response.message])
-      setNewMessage("")
-      
-      // Update conversation in list
-      setConversations(prev => 
-        prev.map(conv => 
-          conv._id === selectedConversation._id 
-            ? { ...conv, lastMessage: response.message, lastMessageAt: new Date() }
-            : conv
+      if (response.success) {
+        setMessages(prev => [...prev, response.message])
+        setNewMessage("")
+        
+        // Update conversation in list
+        setConversations(prev => 
+          prev.map(conv => 
+            conv._id === selectedConversation._id 
+              ? { ...conv, lastMessage: response.message, lastMessageAt: new Date() }
+              : conv
+          )
         )
-      )
-    } catch (error) {
+      }
+    } catch (error: any) {
       console.error("Error sending message:", error)
+      alert(error.message || "Failed to send message. Please try again.")
     }
   }
 

@@ -28,7 +28,7 @@ function HeaderContent() {
     checkAuth()
 
     // Retrieve user data from sessionStorage
-    const storedUser = sessionStorage.getItem('user')
+    const storedUser = typeof window !== 'undefined' ? sessionStorage.getItem('user') : null
     console.log('Header - Stored user:', storedUser)
     if (storedUser) {
       const user = JSON.parse(storedUser)
@@ -38,11 +38,24 @@ function HeaderContent() {
 
   async function checkAuth() {
     try {
-      const user = await getCurrentUser()
-      console.log('Header - User authenticated:', user)
-      setCurrentUser(user)
+      // Prefer token-based auth used across the app
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      if (token) {
+        setCurrentUser({ token })
+        setIsLoading(false)
+        return
+      }
+      // Fallback to Amplify (if configured)
+      const user = await getCurrentUser().catch(() => null)
+      if (user) {
+        console.log('Header - User authenticated via Amplify:', user)
+        setCurrentUser(user)
+      } else {
+        console.log('Header - No authenticated user')
+        setCurrentUser(null)
+      }
     } catch (error) {
-      console.log('Header - No authenticated user')
+      console.log('Header - Auth check error')
       setCurrentUser(null)
     } finally {
       setIsLoading(false)
@@ -51,8 +64,13 @@ function HeaderContent() {
 
   const handleLogout = async () => {
     try {
-      await signOut({ global: true })
-      console.log('Successfully logged out')
+      // Clear token/session used by the app
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+        sessionStorage.removeItem('user')
+      }
+      // Try Amplify signOut if configured (ignore failures)
+      try { await signOut({ global: true }) } catch {}
       setCurrentUser(null)
       router.push('/login')
     } catch (error) {
@@ -109,7 +127,7 @@ function HeaderContent() {
             <Link href="/network">Agencies</Link>
           </Button> */}
           <Button variant="ghost" className="h-12 px-4 hover:bg-ink-hover text-white">
-            <Link href="/messages">Events</Link>
+            <Link href="/events">Events</Link>
           </Button>
           {/* <Button variant="ghost" className="h-12 px-4 hover:bg-ink-hover text-white">
             <Link href="/network">Assistant</Link>
@@ -118,28 +136,11 @@ function HeaderContent() {
 
         {/* Desktop Actions - Hidden on mobile */}
         <div className="hidden md:flex items-center justify-end flex-1 space-x-2">
-          {!currentUser ? (
+          {currentUser ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-ink-hover">
-                  <User className="h-5 w-5" />
-                  <span>Account</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-ink-light border-ink">
-                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/login')}>
-                  <span>Sign In</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/signup')}>
-                  <span>Sign Up</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-ink-hover">
-                  <Avatar className="h-6 w-6">
+                  <Avatar className="h-8 w-8">
                     <AvatarImage src="/placeholder-user.jpg" alt={userName || 'User'} />
                     <AvatarFallback>{(userName || 'U').charAt(0)}</AvatarFallback>
                   </Avatar>
@@ -163,6 +164,23 @@ function HeaderContent() {
                 <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-ink-hover">
+                  <User className="h-5 w-5" />
+                  <span>Account</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-ink-light border-ink">
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/login')}>
+                  <span>Sign In</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-white hover:bg-ink-hover" onSelect={() => router.push('/signup')}>
+                  <span>Sign Up</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

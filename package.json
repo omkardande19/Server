@@ -5,10 +5,9 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
-    "start": "npx serve@latest out",
+    "start": "next start -p 3000",
     "clean": "rm -rf .next out",
     "export": "next build",
-    "deploy": "next build && aws s3 sync out/ s3://your-bucket-name --profile erp_setup",
     "lint": "next lint"
   },
   "dependencies": {
@@ -46,6 +45,7 @@
     "amazon-cognito-identity-js": "^6.3.12",
     "autoprefixer": "^10.4.20",
     "aws-amplify": "^6.13.1",
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.8.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -57,6 +57,7 @@
     "lucide-react": "^0.454.0",
     "next": "14.2.16",
     "next-themes": "^0.4.4",
+    "pm2": "^6.0.13",
     "react": "^18",
     "react-day-picker": "8.10.1",
     "react-dom": "^18",

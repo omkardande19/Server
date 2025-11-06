@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Edit, MapPin } from "lucide-react";
+import { Edit, MapPin, Share2, Copy, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,15 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-
-// Set your API Gateway endpoint URL for editing user
-const EDIT_USER_ENDPOINT =
-  "https://to58hqa8w7.execute-api.ap-south-1.amazonaws.com/prod/users";
+import { ImageUpload, ResumeUpload } from "@/components/file-upload";
+import { updateUserProfile } from "@/lib/api";
 
 interface ArtistUser {
-  id: string;               // from stored user.userId
-  name: string;             // from stored user.fullName
-  title: string;            // from stored user.userCategory (i.e. artist type)
+  id: string;
+  name: string;
+  title: string;
   address?: string;
   phoneNumber?: string;
   userCategoryType?: string;
@@ -29,14 +27,59 @@ interface ArtistUser {
   website?: string;
   youtube?: string;
   linkedin?: string;
+  instagram?: string;
+  facebook?: string;
   agencyName?: string;
   aboutAgency?: string;
   agencyAddress?: string;
   agencyPhone?: string;
   agencyWebsite?: string;
-  profileImage?: string;    // bio image URI (preview then final public URL)
-  coverImage?: string;      // banner image URI
+  profileImage?: string;
+  coverImage?: string;
   resumeUrl?: string;
+  
+  // Category-specific parameters
+  // Acting/Film Industry
+  height?: string;
+  weight?: string;
+  eyeColor?: string;
+  hairColor?: string;
+  bodyType?: string;
+  ageRange?: string;
+  languages?: string[];
+  actingExperience?: string;
+  specialSkills?: string[];
+  
+  // Music Industry
+  instruments?: string[];
+  musicGenres?: string[];
+  vocalRange?: string;
+  musicExperience?: string;
+  recordingExperience?: boolean;
+  livePerformanceExperience?: boolean;
+  
+  // Visual Arts/Painting
+  artMediums?: string[];
+  artStyles?: string[];
+  artExperience?: string;
+  exhibitions?: string[];
+  artEducation?: string;
+  
+  // Technical/Behind the Scenes
+  technicalSkills?: string[];
+  softwareExpertise?: string[];
+  equipmentExperience?: string[];
+  certifications?: string[];
+  technicalExperience?: string;
+  
+  // Common professional fields
+  education?: string;
+  awards?: string[];
+  portfolio?: string;
+  availability?: string;
+  ratePerDay?: string;
+  ratePerProject?: string;
+  bio?: string;
 }
 
 export default function ArtistProfilePage() {
@@ -47,145 +90,171 @@ export default function ArtistProfilePage() {
   const [profileData, setProfileData] = useState<ArtistUser | null>(null);
   const [originalData, setOriginalData] = useState<ArtistUser | null>(null);
 
-  // Local file state for images & resume
-  const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
-  const [localProfileFile, setLocalProfileFile] = useState<File | null>(null);
-  const [localResumeFile, setLocalResumeFile] = useState<File | null>(null);
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<{
+    coverImage?: { url: string; key: string };
+    profileImage?: { url: string; key: string };
+    resumeUrl?: { url: string; key: string };
+  }>({});
 
-  // Refs for hidden file inputs
-  const coverFileInputRef = useRef<HTMLInputElement>(null);
-  const profileFileInputRef = useRef<HTMLInputElement>(null);
-  const resumeFileInputRef = useRef<HTMLInputElement>(null);
+  // Edit mode state
+  const [isEditingCover, setIsEditingCover] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  
+  // Share state
+  const [shareCopied, setShareCopied] = useState(false);
 
   // -----------------------------------
   // Fetch and map user data from sessionStorage
   // -----------------------------------
   useEffect(() => {
-    const storedUser = sessionStorage.getItem("user");
-    if (!storedUser) {
-      router.push("/login");
-      return;
-    }
+    const loadUserData = async () => {
+      const storedUser = sessionStorage.getItem("user");
+      if (!storedUser) {
+        router.push("/login");
+        return;
+      }
 
-    try {
-      const userData = JSON.parse(storedUser);
-      // Map stored user data into our ArtistUser structure
-      const mappedUser: ArtistUser = {
-        id: userData.userId,
-        name: userData.fullName,
-        title: userData.userCategory, // or userCategoryType if you prefer
-        email: userData.emailId,
-        address: userData.address || "",
-        phoneNumber: userData.phoneNumber || "",
-        userCategoryType: userData.userCategoryType || "",
-        city: userData.city || "",
-        country: userData.country || "",
-        website: userData.website || "",
-        youtube: userData.youtube || "",
-        linkedin: userData.linkedin || "",
-        agencyName: userData.agencyName || "",
-        aboutAgency: userData.aboutAgency || "",
-        agencyAddress: userData.agencyAddress || "",
-        agencyPhone: userData.agencyPhone || "",
-        agencyWebsite: userData.agencyWebsite || "",
-        profileImage: userData.profileImage || "",
-        coverImage: userData.coverImage || "",
-        resumeUrl: userData.resumeUrl || ""
-      };
-      setProfileData(mappedUser);
-      setOriginalData(mappedUser);
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-      router.push("/login");
-    }
-    setIsLoading(false);
+      try {
+        // First try to get fresh data from API
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://ec2-15-206-211-190.ap-south-1.compute.amazonaws.com:5001/api"}/me`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            
+            if (response.ok) {
+              const apiData = await response.json();
+              if (apiData.success && apiData.user) {
+                const userData = apiData.user;
+                // Map fresh API data
+                const mappedUser: ArtistUser = {
+                  id: userData.userId || userData._id,
+                  name: userData.fullName,
+                  title: userData.userCategory,
+                  email: userData.emailId,
+                  address: userData.address || "",
+                  phoneNumber: userData.phoneNumber || "",
+                  userCategoryType: userData.userCategoryType || "",
+                  city: userData.city || "",
+                  country: userData.country || "",
+                  website: userData.website || "",
+                  youtube: userData.youtube || "",
+                  linkedin: userData.linkedin || "",
+                  agencyName: userData.agencyName || "",
+                  aboutAgency: userData.aboutAgency || "",
+                  agencyAddress: userData.agencyAddress || "",
+                  agencyPhone: userData.agencyPhone || "",
+                  agencyWebsite: userData.agencyWebsite || "",
+                  profileImage: userData.profileImage || "",
+                  coverImage: userData.coverImage || "",
+                  resumeUrl: userData.resumeUrl || "",
+                  bio: userData.bio || "",
+                  education: userData.education || "",
+                  availability: userData.availability || "",
+                  ratePerDay: userData.ratePerDay || "",
+                  ratePerProject: userData.ratePerProject || "",
+                  portfolio: userData.portfolio || "",
+                  awards: userData.awards || [],
+                  // Category-specific fields
+                  height: userData.height || "",
+                  weight: userData.weight || "",
+                  eyeColor: userData.eyeColor || "",
+                  hairColor: userData.hairColor || "",
+                  bodyType: userData.bodyType || "",
+                  ageRange: userData.ageRange || "",
+                  languages: userData.languages || [],
+                  actingExperience: userData.actingExperience || "",
+                  specialSkills: userData.specialSkills || [],
+                  instruments: userData.instruments || [],
+                  musicGenres: userData.musicGenres || [],
+                  vocalRange: userData.vocalRange || "",
+                  musicExperience: userData.musicExperience || "",
+                  recordingExperience: userData.recordingExperience || false,
+                  livePerformanceExperience: userData.livePerformanceExperience || false,
+                  artMediums: userData.artMediums || [],
+                  artStyles: userData.artStyles || [],
+                  artExperience: userData.artExperience || "",
+                  exhibitions: userData.exhibitions || [],
+                  artEducation: userData.artEducation || "",
+                  technicalSkills: userData.technicalSkills || [],
+                  softwareExpertise: userData.softwareExpertise || [],
+                  equipmentExperience: userData.equipmentExperience || [],
+                  certifications: userData.certifications || [],
+                  technicalExperience: userData.technicalExperience || "",
+                };
+                setProfileData(mappedUser);
+                setOriginalData(mappedUser);
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (apiError) {
+            console.log("API fetch failed, using sessionStorage:", apiError);
+          }
+        }
+        
+        // Fallback to sessionStorage
+        const userData = JSON.parse(storedUser);
+        const mappedUser: ArtistUser = {
+          id: userData.userId,
+          name: userData.fullName,
+          title: userData.userCategory,
+          email: userData.emailId,
+          address: userData.address || "",
+          phoneNumber: userData.phoneNumber || "",
+          userCategoryType: userData.userCategoryType || "",
+          city: userData.city || "",
+          country: userData.country || "",
+          website: userData.website || "",
+          youtube: userData.youtube || "",
+          linkedin: userData.linkedin || "",
+          agencyName: userData.agencyName || "",
+          aboutAgency: userData.aboutAgency || "",
+          agencyAddress: userData.agencyAddress || "",
+          agencyPhone: userData.agencyPhone || "",
+          agencyWebsite: userData.agencyWebsite || "",
+          profileImage: userData.profileImage || "",
+          coverImage: userData.coverImage || "",
+          resumeUrl: userData.resumeUrl || ""
+        };
+        setProfileData(mappedUser);
+        setOriginalData(mappedUser);
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+        router.push("/login");
+      }
+      setIsLoading(false);
+    };
+
+    loadUserData();
   }, [router]);
 
   // -----------------------------------
-  // Upload helper: convert file to base64 and call the upload API
+  // File upload handlers for S3
   // -----------------------------------
-  const uploadFile = async (file: File, folder: string) => {
-    try {
-      const fileBuffer = await file.arrayBuffer();
-      const base64File = Buffer.from(fileBuffer).toString("base64");
-
-      // Determine folder type: use 'resumes' for resume files and 'images' for images.
-      const folderType = folder === "resumes" ? "resumes" : "images";
-
-      const payload = {
-        file: base64File,
-        folder: folderType,
-        filename: file.name,
-        contentType: file.type,
-      };
-
-      console.log("Uploading file with payload:", {
-        ...payload,
-        file: "[BASE64_STRING]",
-      });
-
-      const response = await fetch(
-        "https://to58hqa8w7.execute-api.ap-south-1.amazonaws.com/prod/uploads",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Upload error:", errorData);
-        throw new Error(errorData.error || "Failed to upload file");
-      }
-
-      const data = await response.json();
-      return data.publicUrl;
-    } catch (error) {
-      console.error("Error in uploadFile:", error);
-      throw error;
-    }
+  const handleCoverImageUpload = (url: string, key: string) => {
+    setUploadedFiles(prev => ({ ...prev, coverImage: { url, key } }));
+    setProfileData((prev) =>
+      prev ? { ...prev, coverImage: url } : null
+    );
   };
 
-  // -----------------------------------
-  // File change handlers (set local file state and preview URL)
-  // -----------------------------------
-  const handleCoverFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setLocalCoverFile(file);
-      setProfileData((prev) =>
-        prev ? { ...prev, coverImage: URL.createObjectURL(file) } : null
-      );
-    }
+  const handleProfileImageUpload = (url: string, key: string) => {
+    setUploadedFiles(prev => ({ ...prev, profileImage: { url, key } }));
+    setProfileData((prev) =>
+      prev ? { ...prev, profileImage: url } : null
+    );
   };
 
-  const handleProfileFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setLocalProfileFile(file);
-      setProfileData((prev) =>
-        prev ? { ...prev, profileImage: URL.createObjectURL(file) } : null
-      );
-    }
-  };
-
-  const handleResumeFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setLocalResumeFile(file);
-      setProfileData((prev) =>
-        prev ? { ...prev, resumeUrl: URL.createObjectURL(file) } : null
-      );
-    }
+  const handleResumeUpload = (url: string, key: string) => {
+    setUploadedFiles(prev => ({ ...prev, resumeUrl: { url, key } }));
+    setProfileData((prev) =>
+      prev ? { ...prev, resumeUrl: url } : null
+    );
   };
 
   // -----------------------------------
@@ -208,27 +277,20 @@ export default function ArtistProfilePage() {
     const updatedData = { ...profileData };
 
     try {
-      // Upload cover image if a new file was selected
-      if (localCoverFile) {
-        const coverUrl = await uploadFile(localCoverFile, "images");
-        updatedData.coverImage = coverUrl;
+      // Use uploaded file URLs if available
+      if (uploadedFiles.coverImage) {
+        updatedData.coverImage = uploadedFiles.coverImage.url;
       }
-      // Upload profile (bio) image if a new file was selected
-      if (localProfileFile) {
-        const profileUrl = await uploadFile(localProfileFile, "images");
-        updatedData.profileImage = profileUrl;
+      if (uploadedFiles.profileImage) {
+        updatedData.profileImage = uploadedFiles.profileImage.url;
       }
-      // Upload resume file if a new file was selected
-      if (localResumeFile) {
-        const resumeUrl = await uploadFile(localResumeFile, "resumes");
-        updatedData.resumeUrl = resumeUrl;
+      if (uploadedFiles.resumeUrl) {
+        updatedData.resumeUrl = uploadedFiles.resumeUrl.url;
       }
 
-      // Prepare payload matching the editUser Lambda's expected fields
+      // Prepare payload for MongoDB backend
       const payload = {
-        userId: updatedData.id,
         fullName: updatedData.name,
-        address: updatedData.address || "",
         phoneNumber: updatedData.phoneNumber || "",
         userCategory: updatedData.title,
         userCategoryType: updatedData.userCategoryType || "",
@@ -245,42 +307,71 @@ export default function ArtistProfilePage() {
         agencyAddress: updatedData.agencyAddress || "",
         agencyPhone: updatedData.agencyPhone || "",
         agencyWebsite: updatedData.agencyWebsite || "",
+        bio: updatedData.bio || "",
+        education: updatedData.education || "",
+        ratePerDay: updatedData.ratePerDay || "",
+        ratePerProject: updatedData.ratePerProject || "",
+        availability: updatedData.availability || "",
+        portfolio: updatedData.portfolio || "",
+        awards: updatedData.awards || [],
+        // Category-specific fields
+        height: updatedData.height || "",
+        weight: updatedData.weight || "",
+        eyeColor: updatedData.eyeColor || "",
+        hairColor: updatedData.hairColor || "",
+        bodyType: updatedData.bodyType || "",
+        ageRange: updatedData.ageRange || "",
+        languages: updatedData.languages || [],
+        actingExperience: updatedData.actingExperience || "",
+        specialSkills: updatedData.specialSkills || [],
+        instruments: updatedData.instruments || [],
+        musicGenres: updatedData.musicGenres || [],
+        vocalRange: updatedData.vocalRange || "",
+        musicExperience: updatedData.musicExperience || "",
+        recordingExperience: updatedData.recordingExperience || false,
+        livePerformanceExperience: updatedData.livePerformanceExperience || false,
+        artMediums: updatedData.artMediums || [],
+        artStyles: updatedData.artStyles || [],
+        artExperience: updatedData.artExperience || "",
+        exhibitions: updatedData.exhibitions || [],
+        artEducation: updatedData.artEducation || "",
+        technicalSkills: updatedData.technicalSkills || [],
+        softwareExpertise: updatedData.softwareExpertise || [],
+        equipmentExperience: updatedData.equipmentExperience || [],
+        certifications: updatedData.certifications || [],
+        technicalExperience: updatedData.technicalExperience || "",
       };
 
-      console.log("Sending payload to API:", JSON.stringify(payload, null, 2));
+      console.log("Sending payload to MongoDB API:", JSON.stringify(payload, null, 2));
 
-      const response = await fetch(EDIT_USER_ENDPOINT, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("API Error Response:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText,
-        });
-        throw new Error(`Failed to update profile: ${errorText}`);
-      }
-
-      const result = await response.json();
+      // Use MongoDB backend API instead of AWS API Gateway
+      const result = await updateUserProfile(payload);
       console.log("Update result:", result);
 
-      // Update sessionStorage with the new user details so that refresh pulls updated values
-      if (result.user) {
-        sessionStorage.setItem("user", JSON.stringify(result.user));
+      if (result.success) {
+        // Update sessionStorage with the new user details
+        const currentUser = JSON.parse(sessionStorage.getItem("user") || "{}");
+        const updatedUser = { ...currentUser, ...result.user };
+        sessionStorage.setItem("user", JSON.stringify(updatedUser));
+
+        toast({ 
+          title: "Success", 
+          description: "Profile updated successfully. Redirecting to dashboard..." 
+        });
+        
+        setProfileData(updatedData);
+        setOriginalData(updatedData);
+
+        // Clear uploaded file states after successful save
+        setUploadedFiles({});
+
+        // Redirect to dashboard after 1.5 seconds
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1500);
+      } else {
+        throw new Error(result.message || "Failed to update profile");
       }
-
-      toast({ title: "Success", description: "Profile updated." });
-      setProfileData(updatedData);
-      setOriginalData(updatedData);
-
-      // Clear local file states after successful upload
-      setLocalCoverFile(null);
-      setLocalProfileFile(null);
-      setLocalResumeFile(null);
     } catch (error) {
       console.error("Save changes error:", error);
       toast({
@@ -295,6 +386,50 @@ export default function ArtistProfilePage() {
     if (originalData) {
       setProfileData(originalData);
       toast({ title: "Cancelled", description: "Changes reverted." });
+    }
+  };
+
+  // Share profile function
+  const handleShareProfile = async () => {
+    try {
+      const profileUrl = `${window.location.origin}/profile/artist?id=${profileData?.id}`;
+      
+      // Try Web Share API if available (mobile)
+      if (navigator.share) {
+        await navigator.share({
+          title: `${profileData?.name}'s Profile - ArtistKatta`,
+          text: `Check out ${profileData?.name}'s profile on ArtistKatta`,
+          url: profileUrl,
+        });
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(profileUrl);
+        setShareCopied(true);
+        toast({ 
+          title: "Link Copied!", 
+          description: "Profile link has been copied to clipboard." 
+        });
+        
+        setTimeout(() => setShareCopied(false), 2000);
+      }
+    } catch (error) {
+      // Fallback: Copy to clipboard if share fails
+      try {
+        const profileUrl = `${window.location.origin}/profile/artist?id=${profileData?.id}`;
+        await navigator.clipboard.writeText(profileUrl);
+        setShareCopied(true);
+        toast({ 
+          title: "Link Copied!", 
+          description: "Profile link has been copied to clipboard." 
+        });
+        setTimeout(() => setShareCopied(false), 2000);
+      } catch (clipboardError) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to share profile. Please try again.",
+        });
+      }
     }
   };
 
@@ -346,22 +481,28 @@ export default function ArtistProfilePage() {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink to-transparent" />
-        <Button
-          size="sm"
-          variant="secondary"
-          className="absolute top-4 right-4 bg-ink-light/80 hover:bg-ink-hover"
-          onClick={() => coverFileInputRef.current?.click()}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Cover
-        </Button>
-        <input
-          type="file"
-          accept="image/*"
-          ref={coverFileInputRef}
-          onChange={handleCoverFileChange}
-          className="hidden"
-        />
+        <div className="absolute top-4 right-4">
+          {isEditingCover ? (
+            <ImageUpload
+              onUploadComplete={(url, key) => {
+                handleCoverImageUpload(url, key);
+                setIsEditingCover(false);
+              }}
+              folder="images"
+              className="inline-block"
+            />
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="bg-ink-light/80 hover:bg-ink-hover"
+              onClick={() => setIsEditingCover(true)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Cover
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Profile Header */}
@@ -386,28 +527,52 @@ export default function ArtistProfilePage() {
                 priority
               />
             )}
-            <Button
-              size="sm"
-              variant="secondary"
-              className="absolute bottom-2 right-2 bg-ink-light/80 hover:bg-ink-hover"
-              onClick={() => profileFileInputRef.current?.click()}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-            <input
-              type="file"
-              accept="image/*"
-              ref={profileFileInputRef}
-              onChange={handleProfileFileChange}
-              className="hidden"
-            />
+            <div className="absolute bottom-2 right-2">
+              {isEditingProfile ? (
+                <ImageUpload
+                  onUploadComplete={(url, key) => {
+                    handleProfileImageUpload(url, key);
+                    setIsEditingProfile(false);
+                  }}
+                  folder="images"
+                  className="inline-block"
+                />
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="bg-ink-light/80 hover:bg-ink-hover"
+                  onClick={() => setIsEditingProfile(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Name, Title, and Location */}
           <div className="mb-8 flex-1">
             <div className="flex items-center space-x-4">
               <h1 className="text-3xl font-bold text-white">{profileData.name}</h1>
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-transparent border-white/20 text-white hover:bg-white/10"
+                onClick={handleShareProfile}
+              >
+                {shareCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share Profile
+                  </>
+                )}
+              </Button>
             </div>
             <h2 className="mt-1 text-xl text-muted-foreground">{profileData.title}</h2>
             {(profileData.city || profileData.country) && (
@@ -426,9 +591,9 @@ export default function ArtistProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Bio, Agency, Resume, and Action Buttons */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Bio Card */}
+            {/* Basic Info Card */}
             <Card className="p-6 bg-ink-light border-ink">
-              <h3 className="text-lg font-semibold text-white mb-4">Bio</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">Basic Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                   name="name"
@@ -456,6 +621,363 @@ export default function ArtistProfilePage() {
                   value={profileData.country || ""}
                   onChange={handleInputChange}
                   placeholder="Country"
+                  className="bg-gray-800 text-white placeholder-gray-400"
+                />
+                <Input
+                  name="ageRange"
+                  value={profileData.ageRange || ""}
+                  onChange={handleInputChange}
+                  placeholder="Age Range (e.g. 25-35)"
+                  className="bg-gray-800 text-white placeholder-gray-400"
+                />
+                <Input
+                  name="availability"
+                  value={profileData.availability || ""}
+                  onChange={handleInputChange}
+                  placeholder="Availability (e.g. Full-time, Part-time)"
+                  className="bg-gray-800 text-white placeholder-gray-400"
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm text-gray-400 mb-2">Bio</label>
+                <Textarea
+                  name="bio"
+                  value={profileData.bio || ""}
+                  onChange={handleInputChange}
+                  placeholder="Tell us about yourself, your experience, and what makes you unique..."
+                  rows={4}
+                  className="bg-gray-800 text-white placeholder-gray-400"
+                />
+              </div>
+            </Card>
+
+            {/* Category-Specific Parameters */}
+            {profileData.userCategoryType?.toLowerCase().includes('actor') && (
+              <Card className="p-6 bg-ink-light border-ink">
+                <h3 className="text-lg font-semibold text-white mb-4">🎭 Acting Profile</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    name="height"
+                    value={profileData.height || ""}
+                    onChange={handleInputChange}
+                    placeholder="Height (e.g. 5'8&quot;, 175cm)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="weight"
+                    value={profileData.weight || ""}
+                    onChange={handleInputChange}
+                    placeholder="Weight (e.g. 70kg, 155lbs)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="eyeColor"
+                    value={profileData.eyeColor || ""}
+                    onChange={handleInputChange}
+                    placeholder="Eye Color"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="hairColor"
+                    value={profileData.hairColor || ""}
+                    onChange={handleInputChange}
+                    placeholder="Hair Color"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="bodyType"
+                    value={profileData.bodyType || ""}
+                    onChange={handleInputChange}
+                    placeholder="Body Type (e.g. Athletic, Slim)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="actingExperience"
+                    value={profileData.actingExperience || ""}
+                    onChange={handleInputChange}
+                    placeholder="Acting Experience (years)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Languages (comma-separated)</label>
+                  <Input
+                    name="languages"
+                    value={profileData.languages?.join(', ') || ""}
+                    onChange={(e) => {
+                      const languages = e.target.value.split(',').map(lang => lang.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, languages } : null);
+                    }}
+                    placeholder="English, Hindi, Tamil, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Special Skills (comma-separated)</label>
+                  <Input
+                    name="specialSkills"
+                    value={profileData.specialSkills?.join(', ') || ""}
+                    onChange={(e) => {
+                      const specialSkills = e.target.value.split(',').map(skill => skill.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, specialSkills } : null);
+                    }}
+                    placeholder="Dancing, Singing, Martial Arts, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+              </Card>
+            )}
+
+            {/* Music Industry Parameters */}
+            {(profileData.userCategoryType?.toLowerCase().includes('music') || 
+              profileData.userCategoryType?.toLowerCase().includes('singer') ||
+              profileData.userCategoryType?.toLowerCase().includes('musician')) && (
+              <Card className="p-6 bg-ink-light border-ink">
+                <h3 className="text-lg font-semibold text-white mb-4">🎵 Music Profile</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    name="vocalRange"
+                    value={profileData.vocalRange || ""}
+                    onChange={handleInputChange}
+                    placeholder="Vocal Range (e.g. Soprano, Baritone)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="musicExperience"
+                    value={profileData.musicExperience || ""}
+                    onChange={handleInputChange}
+                    placeholder="Music Experience (years)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Instruments (comma-separated)</label>
+                  <Input
+                    name="instruments"
+                    value={profileData.instruments?.join(', ') || ""}
+                    onChange={(e) => {
+                      const instruments = e.target.value.split(',').map(inst => inst.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, instruments } : null);
+                    }}
+                    placeholder="Guitar, Piano, Drums, Violin, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Music Genres (comma-separated)</label>
+                  <Input
+                    name="musicGenres"
+                    value={profileData.musicGenres?.join(', ') || ""}
+                    onChange={(e) => {
+                      const musicGenres = e.target.value.split(',').map(genre => genre.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, musicGenres } : null);
+                    }}
+                    placeholder="Classical, Rock, Pop, Jazz, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={profileData.recordingExperience || false}
+                      onChange={(e) => setProfileData(prev => prev ? { ...prev, recordingExperience: e.target.checked } : null)}
+                      className="rounded"
+                    />
+                    <span className="text-white text-sm">Recording Experience</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={profileData.livePerformanceExperience || false}
+                      onChange={(e) => setProfileData(prev => prev ? { ...prev, livePerformanceExperience: e.target.checked } : null)}
+                      className="rounded"
+                    />
+                    <span className="text-white text-sm">Live Performance Experience</span>
+                  </label>
+                </div>
+              </Card>
+            )}
+
+            {/* Visual Arts/Painting Parameters */}
+            {(profileData.userCategoryType?.toLowerCase().includes('paint') || 
+              profileData.userCategoryType?.toLowerCase().includes('artist') ||
+              profileData.userCategoryType?.toLowerCase().includes('visual')) && (
+              <Card className="p-6 bg-ink-light border-ink">
+                <h3 className="text-lg font-semibold text-white mb-4">🎨 Visual Arts Profile</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    name="artExperience"
+                    value={profileData.artExperience || ""}
+                    onChange={handleInputChange}
+                    placeholder="Art Experience (years)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="artEducation"
+                    value={profileData.artEducation || ""}
+                    onChange={handleInputChange}
+                    placeholder="Art Education/Degree"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Art Mediums (comma-separated)</label>
+                  <Input
+                    name="artMediums"
+                    value={profileData.artMediums?.join(', ') || ""}
+                    onChange={(e) => {
+                      const artMediums = e.target.value.split(',').map(medium => medium.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, artMediums } : null);
+                    }}
+                    placeholder="Oil, Watercolor, Acrylic, Digital, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Art Styles (comma-separated)</label>
+                  <Input
+                    name="artStyles"
+                    value={profileData.artStyles?.join(', ') || ""}
+                    onChange={(e) => {
+                      const artStyles = e.target.value.split(',').map(style => style.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, artStyles } : null);
+                    }}
+                    placeholder="Realistic, Abstract, Impressionist, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Exhibitions (comma-separated)</label>
+                  <Input
+                    name="exhibitions"
+                    value={profileData.exhibitions?.join(', ') || ""}
+                    onChange={(e) => {
+                      const exhibitions = e.target.value.split(',').map(exh => exh.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, exhibitions } : null);
+                    }}
+                    placeholder="Gallery names, exhibition titles, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+              </Card>
+            )}
+
+            {/* Technical/Behind the Scenes Parameters */}
+            {(profileData.userCategoryType?.toLowerCase().includes('director') || 
+              profileData.userCategoryType?.toLowerCase().includes('editor') ||
+              profileData.userCategoryType?.toLowerCase().includes('technical') ||
+              profileData.userCategoryType?.toLowerCase().includes('sound') ||
+              profileData.userCategoryType?.toLowerCase().includes('camera')) && (
+              <Card className="p-6 bg-ink-light border-ink">
+                <h3 className="text-lg font-semibold text-white mb-4">🎬 Technical Profile</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    name="technicalExperience"
+                    value={profileData.technicalExperience || ""}
+                    onChange={handleInputChange}
+                    placeholder="Technical Experience (years)"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                  <Input
+                    name="portfolio"
+                    value={profileData.portfolio || ""}
+                    onChange={handleInputChange}
+                    placeholder="Portfolio URL"
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Technical Skills (comma-separated)</label>
+                  <Input
+                    name="technicalSkills"
+                    value={profileData.technicalSkills?.join(', ') || ""}
+                    onChange={(e) => {
+                      const technicalSkills = e.target.value.split(',').map(skill => skill.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, technicalSkills } : null);
+                    }}
+                    placeholder="Cinematography, Video Editing, Sound Design, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Software Expertise (comma-separated)</label>
+                  <Input
+                    name="softwareExpertise"
+                    value={profileData.softwareExpertise?.join(', ') || ""}
+                    onChange={(e) => {
+                      const softwareExpertise = e.target.value.split(',').map(sw => sw.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, softwareExpertise } : null);
+                    }}
+                    placeholder="Final Cut Pro, Avid, Pro Tools, Photoshop, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Equipment Experience (comma-separated)</label>
+                  <Input
+                    name="equipmentExperience"
+                    value={profileData.equipmentExperience?.join(', ') || ""}
+                    onChange={(e) => {
+                      const equipmentExperience = e.target.value.split(',').map(eq => eq.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, equipmentExperience } : null);
+                    }}
+                    placeholder="RED Camera, Canon C300, Steadicam, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Certifications (comma-separated)</label>
+                  <Input
+                    name="certifications"
+                    value={profileData.certifications?.join(', ') || ""}
+                    onChange={(e) => {
+                      const certifications = e.target.value.split(',').map(cert => cert.trim()).filter(Boolean);
+                      setProfileData(prev => prev ? { ...prev, certifications } : null);
+                    }}
+                    placeholder="Avid Certified, Adobe Certified Expert, etc."
+                    className="bg-gray-800 text-white placeholder-gray-400"
+                  />
+                </div>
+              </Card>
+            )}
+
+            {/* Professional Details Card */}
+            <Card className="p-6 bg-ink-light border-ink">
+              <h3 className="text-lg font-semibold text-white mb-4">💼 Professional Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  name="education"
+                  value={profileData.education || ""}
+                  onChange={handleInputChange}
+                  placeholder="Education/Degree"
+                  className="bg-gray-800 text-white placeholder-gray-400"
+                />
+                <Input
+                  name="ratePerDay"
+                  value={profileData.ratePerDay || ""}
+                  onChange={handleInputChange}
+                  placeholder="Rate per Day (₹)"
+                  className="bg-gray-800 text-white placeholder-gray-400"
+                />
+                <Input
+                  name="ratePerProject"
+                  value={profileData.ratePerProject || ""}
+                  onChange={handleInputChange}
+                  placeholder="Rate per Project (₹)"
+                  className="bg-gray-800 text-white placeholder-gray-400"
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm text-gray-400 mb-2">Awards & Achievements (comma-separated)</label>
+                <Input
+                  name="awards"
+                  value={profileData.awards?.join(', ') || ""}
+                  onChange={(e) => {
+                    const awards = e.target.value.split(',').map(award => award.trim()).filter(Boolean);
+                    setProfileData(prev => prev ? { ...prev, awards } : null);
+                  }}
+                  placeholder="Best Actor 2023, Filmfare Award, etc."
                   className="bg-gray-800 text-white placeholder-gray-400"
                 />
               </div>
@@ -506,27 +1028,26 @@ export default function ArtistProfilePage() {
             {/* Resume Card */}
             <Card className="p-6 bg-ink-light border-ink">
               <h3 className="text-lg font-semibold text-white mb-4">Professional Resume</h3>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Upload Resume</label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                ref={resumeFileInputRef}
-                onChange={handleResumeFileChange}
-                className="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4 file:rounded file:border-0
-                  file:bg-primary file:text-white hover:file:bg-primary/90"
+              <ResumeUpload
+                onUploadComplete={handleResumeUpload}
+                existingFile={profileData.resumeUrl}
+                showPreview={true}
               />
               {profileData.resumeUrl && (
-                <p className="mt-2">
+                <div className="mt-4">
+                  <p className="text-sm text-gray-400 mb-2">Current Resume:</p>
                   <a
                     href={profileData.resumeUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary underline"
+                    className="inline-flex items-center text-primary hover:underline"
                   >
-                    View Résumé
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    View Resume
                   </a>
-                </p>
+                </div>
               )}
             </Card>
 

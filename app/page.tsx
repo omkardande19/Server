@@ -7,6 +7,15 @@ export const metadata: Metadata = {
 }
 
 export default function HomePage() {
-  redirect('/dashboard')
+  const router = useRouter()
+  const { isAuthenticated } = useAuth() // or similar
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard")
+    } else {
+      router.push("/login")
+    }
+  }, [router, isAuthenticated])
+  return null
 }
 

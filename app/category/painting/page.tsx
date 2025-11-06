@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { searchUsers } from "@/lib/api"
 import { 
-  Music, 
-  Mic, 
-  Headphones, 
+  Palette, 
+  Brush, 
+  Image as ImageIcon, 
   Users, 
   Search, 
   MapPin, 
@@ -18,19 +18,18 @@ import {
   Eye,
   UserPlus,
   MessageCircle,
-  Volume2,
-  Radio
+  Award
 } from "lucide-react"
 
-export default function MusicPage() {
+export default function PaintingPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState([])
   const [filters, setFilters] = useState({
-    role: "",
-    genre: "",
-    instrument: "",
+    medium: "",
+    style: "",
     experience: "",
-    location: ""
+    location: "",
+    priceRange: ""
   })
   const [loading, setLoading] = useState(false)
 
@@ -41,7 +40,7 @@ export default function MusicPage() {
     try {
       const response = await searchUsers({ 
         q: searchQuery,
-        category: "music",
+        category: "painting",
         ...filters
       })
       setSearchResults(response.users || [])
@@ -52,13 +51,13 @@ export default function MusicPage() {
     }
   }
 
-  const musicCategories = [
-    { name: "Vocalists", count: 67, icon: <Mic className="h-5 w-5" /> },
-    { name: "Music Producers", count: 43, icon: <Headphones className="h-5 w-5" /> },
-    { name: "Instrumentalists", count: 89, icon: <Music className="h-5 w-5" /> },
-    { name: "Sound Engineers", count: 32, icon: <Volume2 className="h-5 w-5" /> },
-    { name: "Music Directors", count: 28, icon: <Radio className="h-5 w-5" /> },
-    { name: "Composers", count: 41, icon: <Music className="h-5 w-5" /> }
+  const artCategories = [
+    { name: "Portrait Artists", count: 34, icon: <Users className="h-5 w-5" /> },
+    { name: "Landscape Artists", count: 28, icon: <ImageIcon className="h-5 w-5" /> },
+    { name: "Abstract Artists", count: 42, icon: <Palette className="h-5 w-5" /> },
+    { name: "Digital Artists", count: 56, icon: <ImageIcon className="h-5 w-5" /> },
+    { name: "Muralists", count: 19, icon: <Brush className="h-5 w-5" /> },
+    { name: "Illustrators", count: 38, icon: <Palette className="h-5 w-5" /> }
   ]
 
   return (
@@ -66,21 +65,21 @@ export default function MusicPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <Music className="h-8 w-8 text-primary" />
-          Music Industry
+          <Palette className="h-8 w-8 text-primary" />
+          Painting & Visual Arts
         </h1>
-        <p className="text-gray-400">Connect with musicians, producers, and music industry professionals</p>
+        <p className="text-gray-400">Connect with painters, illustrators, and visual artists</p>
       </div>
 
-      {/* Music Categories */}
+      {/* Art Categories */}
       <Card className="bg-[#1f1f1f] border-[#2f2f2f] mb-6">
         <CardHeader>
-          <CardTitle className="text-white">Music Categories</CardTitle>
-          <CardDescription className="text-gray-400">Explore different music industry roles</CardDescription>
+          <CardTitle className="text-white">Art Categories</CardTitle>
+          <CardDescription className="text-gray-400">Explore different types of visual artists</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {musicCategories.map((category) => (
+            {artCategories.map((category) => (
               <div key={category.name} className="p-4 bg-[#2a2a2a] rounded-lg border border-[#3f3f3f] hover:border-primary/50 transition-colors cursor-pointer">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -89,7 +88,7 @@ export default function MusicPage() {
                     </div>
                     <div>
                       <h4 className="text-white font-medium">{category.name}</h4>
-                      <p className="text-gray-400 text-sm">{category.count} professionals</p>
+                      <p className="text-gray-400 text-sm">{category.count} artists</p>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" className="border-[#3f3f3f] text-white hover:bg-[#2a2a2a]">
@@ -107,9 +106,9 @@ export default function MusicPage() {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Search className="h-5 w-5" />
-            Find Music Professionals
+            Find Visual Artists
           </CardTitle>
-          <CardDescription className="text-gray-400">Search by genre, instrument, and expertise</CardDescription>
+          <CardDescription className="text-gray-400">Search by medium, style, and expertise</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -117,7 +116,7 @@ export default function MusicPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by name, genre, or instrument..."
+                  placeholder="Search by name, style, or medium..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -133,47 +132,32 @@ export default function MusicPage() {
               </Button>
             </div>
             
-            {/* Music-Specific Filters */}
+            {/* Art-Specific Filters */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <select 
                 className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2"
-                value={filters.role}
-                onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
+                value={filters.medium}
+                onChange={(e) => setFilters(prev => ({ ...prev, medium: e.target.value }))}
               >
-                <option value="">All Roles</option>
-                <option value="vocalist">Vocalist</option>
-                <option value="instrumentalist">Instrumentalist</option>
-                <option value="producer">Producer</option>
-                <option value="composer">Composer</option>
-                <option value="sound-engineer">Sound Engineer</option>
+                <option value="">All Mediums</option>
+                <option value="oil">Oil Painting</option>
+                <option value="watercolor">Watercolor</option>
+                <option value="acrylic">Acrylic</option>
+                <option value="digital">Digital Art</option>
+                <option value="mixed-media">Mixed Media</option>
               </select>
               
               <select 
                 className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2"
-                value={filters.genre}
-                onChange={(e) => setFilters(prev => ({ ...prev, genre: e.target.value }))}
+                value={filters.style}
+                onChange={(e) => setFilters(prev => ({ ...prev, style: e.target.value }))}
               >
-                <option value="">All Genres</option>
-                <option value="classical">Classical</option>
-                <option value="bollywood">Bollywood</option>
-                <option value="rock">Rock</option>
-                <option value="pop">Pop</option>
-                <option value="jazz">Jazz</option>
-                <option value="folk">Folk</option>
-              </select>
-              
-              <select 
-                className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2"
-                value={filters.instrument}
-                onChange={(e) => setFilters(prev => ({ ...prev, instrument: e.target.value }))}
-              >
-                <option value="">Instruments</option>
-                <option value="guitar">Guitar</option>
-                <option value="piano">Piano</option>
-                <option value="drums">Drums</option>
-                <option value="violin">Violin</option>
-                <option value="flute">Flute</option>
-                <option value="tabla">Tabla</option>
+                <option value="">All Styles</option>
+                <option value="realistic">Realistic</option>
+                <option value="abstract">Abstract</option>
+                <option value="impressionist">Impressionist</option>
+                <option value="contemporary">Contemporary</option>
+                <option value="traditional">Traditional</option>
               </select>
               
               <select 
@@ -196,52 +180,64 @@ export default function MusicPage() {
                 <option value="">Location</option>
                 <option value="mumbai">Mumbai</option>
                 <option value="delhi">Delhi</option>
-                <option value="chennai">Chennai</option>
                 <option value="bangalore">Bangalore</option>
-                <option value="kolkata">Kolkata</option>
+                <option value="chennai">Chennai</option>
+                <option value="pune">Pune</option>
+              </select>
+              
+              <select 
+                className="bg-[#2a2a2a] border-[#3f3f3f] text-white rounded px-3 py-2"
+                value={filters.priceRange}
+                onChange={(e) => setFilters(prev => ({ ...prev, priceRange: e.target.value }))}
+              >
+                <option value="">Price Range</option>
+                <option value="0-5000">₹0 - ₹5,000</option>
+                <option value="5000-15000">₹5,000 - ₹15,000</option>
+                <option value="15000-50000">₹15,000 - ₹50,000</option>
+                <option value="50000+">₹50,000+</option>
               </select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Featured Musicians */}
+      {/* Featured Artists */}
       <Card className="bg-[#1f1f1f] border-[#2f2f2f]">
         <CardHeader>
-          <CardTitle className="text-white">Featured Musicians</CardTitle>
-          <CardDescription className="text-gray-400">Top-rated music industry professionals</CardDescription>
+          <CardTitle className="text-white">Featured Artists</CardTitle>
+          <CardDescription className="text-gray-400">Top-rated painters and visual artists</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Sample featured musicians */}
+            {/* Sample featured artists */}
             <div className="p-4 bg-[#2a2a2a] rounded-lg border border-[#3f3f3f]">
               <div className="flex items-center gap-3 mb-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src="/placeholder-user.jpg" alt="Rahul Mehta" />
-                  <AvatarFallback className="bg-primary text-white">RM</AvatarFallback>
+                  <AvatarImage src="/placeholder-user.jpg" alt="Maya Patel" />
+                  <AvatarFallback className="bg-primary text-white">MP</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h4 className="text-white font-medium">Rahul Mehta</h4>
-                  <p className="text-gray-400 text-sm">Music Producer</p>
+                  <h4 className="text-white font-medium">Maya Patel</h4>
+                  <p className="text-gray-400 text-sm">Portrait Artist</p>
                 </div>
                 <Badge className="bg-yellow-500/20 text-yellow-500 ml-auto">Featured</Badge>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Genre:</span>
-                  <span className="text-white">Bollywood, Pop</span>
+                  <span className="text-gray-400">Medium:</span>
+                  <span className="text-white">Oil, Watercolor</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Experience:</span>
-                  <span className="text-white">12 years</span>
+                  <span className="text-white">10 years</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Location:</span>
                   <span className="text-white">Mumbai</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Studio:</span>
-                  <span className="text-white">Yes</span>
+                  <span className="text-gray-400">Rate:</span>
+                  <span className="text-white">₹15,000/project</span>
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
@@ -258,31 +254,72 @@ export default function MusicPage() {
             <div className="p-4 bg-[#2a2a2a] rounded-lg border border-[#3f3f3f]">
               <div className="flex items-center gap-3 mb-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src="/placeholder-user.jpg" alt="Shreya Ghoshal" />
-                  <AvatarFallback className="bg-primary text-white">SG</AvatarFallback>
+                  <AvatarImage src="/placeholder-user.jpg" alt="Vikram Singh" />
+                  <AvatarFallback className="bg-primary text-white">VS</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h4 className="text-white font-medium">Shreya Iyer</h4>
-                  <p className="text-gray-400 text-sm">Playback Singer</p>
+                  <h4 className="text-white font-medium">Vikram Singh</h4>
+                  <p className="text-gray-400 text-sm">Abstract Artist</p>
                 </div>
-                <Badge className="bg-purple-500/20 text-purple-500 ml-auto">Top Rated</Badge>
+                <Badge className="bg-purple-500/20 text-purple-500 ml-auto">Award Winner</Badge>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Vocal Range:</span>
-                  <span className="text-white">Soprano</span>
+                  <span className="text-gray-400">Medium:</span>
+                  <span className="text-white">Acrylic, Mixed Media</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Experience:</span>
-                  <span className="text-white">8 years</span>
+                  <span className="text-white">15 years</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Location:</span>
-                  <span className="text-white">Chennai</span>
+                  <span className="text-white">Delhi</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Languages:</span>
-                  <span className="text-white">Tamil, Hindi</span>
+                  <span className="text-gray-400">Exhibitions:</span>
+                  <span className="text-white">25+ shows</span>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90">
+                  <UserPlus className="h-4 w-4 mr-1" />
+                  Connect
+                </Button>
+                <Button size="sm" variant="outline" className="border-[#3f3f3f] text-white hover:bg-[#2a2a2a]">
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-[#2a2a2a] rounded-lg border border-[#3f3f3f]">
+              <div className="flex items-center gap-3 mb-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src="/placeholder-user.jpg" alt="Anita Desai" />
+                  <AvatarFallback className="bg-primary text-white">AD</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h4 className="text-white font-medium">Anita Desai</h4>
+                  <p className="text-gray-400 text-sm">Digital Artist</p>
+                </div>
+                <Badge className="bg-green-500/20 text-green-500 ml-auto">Available</Badge>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Medium:</span>
+                  <span className="text-white">Digital, Photoshop</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Experience:</span>
+                  <span className="text-white">7 years</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Location:</span>
+                  <span className="text-white">Bangalore</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Speciality:</span>
+                  <span className="text-white">Concept Art</span>
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
@@ -295,50 +332,12 @@ export default function MusicPage() {
                 </Button>
               </div>
             </div>
-
-            <div className="p-4 bg-[#2a2a2a] rounded-lg border border-[#3f3f3f]">
-              <div className="flex items-center gap-3 mb-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src="/placeholder-user.jpg" alt="Amit Trivedi" />
-                  <AvatarFallback className="bg-primary text-white">AT</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="text-white font-medium">Amit Kumar</h4>
-                  <p className="text-gray-400 text-sm">Guitarist</p>
-                </div>
-                <Badge className="bg-green-500/20 text-green-500 ml-auto">Available</Badge>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Instruments:</span>
-                  <span className="text-white">Guitar, Bass</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Experience:</span>
-                  <span className="text-white">10 years</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Location:</span>
-                  <span className="text-white">Delhi</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Genre:</span>
-                  <span className="text-white">Rock, Blues</span>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90">
-                  <UserPlus className="h-4 w-4 mr-1" />
-                  Connect
-                </Button>
-                <Button size="sm" variant="outline" className="border-[#3f3f3f] text-white hover:bg-[#2a2a2a]">
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
     </div>
   )
 }
+
+
+
