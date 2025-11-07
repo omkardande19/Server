@@ -231,11 +231,11 @@ export default function DashboardPage() {
                     <Button 
                         variant="ghost" 
                         className="w-full justify-start text-white hover:bg-[#2a2a2a]"
-                        onClick={() => {
-                            localStorage.removeItem("token");
-                            router.push("/login");
-                        }}
-                    >
+									onClick={() => {
+										localStorage.removeItem("token");
+										router.push("/login");
+									}}
+								>
                         <LogOut className="mr-2 h-4 w-4" />
                         Logout
                     </Button>
