@@ -48,6 +48,51 @@ export interface ArtistUser extends BaseUser {
     organization: string;
     year: string;
   }>
+  talentProfiles?: TalentProfile[]
+  activeProfileId?: string
+}
+
+export interface TalentProfile {
+  profileId: string
+  profileType: string
+  displayName?: string
+  title?: string
+  bio?: string
+  profileImage?: string
+  coverImage?: string
+  resumeUrl?: string
+  availability?: string
+  ratePerDay?: string
+  ratePerProject?: string
+  portfolio?: string
+  education?: string
+  awards?: string[]
+  languages?: string[]
+  specialSkills?: string[]
+  height?: string
+  weight?: string
+  eyeColor?: string
+  hairColor?: string
+  bodyType?: string
+  ageRange?: string
+  actingExperience?: string
+  instruments?: string[]
+  musicGenres?: string[]
+  vocalRange?: string
+  musicExperience?: string
+  recordingExperience?: boolean
+  livePerformanceExperience?: boolean
+  artMediums?: string[]
+  artStyles?: string[]
+  artExperience?: string
+  exhibitions?: string[]
+  artEducation?: string
+  technicalSkills?: string[]
+  softwareExpertise?: string[]
+  equipmentExperience?: string[]
+  certifications?: string[]
+  technicalExperience?: string
+  isPrimary?: boolean
 }
 
 export interface CompanyUser extends BaseUser {
