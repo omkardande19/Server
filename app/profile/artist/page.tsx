@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Edit, MapPin, Share2, Copy, Check } from "lucide-react";
+import { Edit, MapPin, Share2, Copy, Check, Mail, MessageCircle, MessageSquare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -103,6 +103,8 @@ export default function ArtistProfilePage() {
   
   // Share state
   const [shareCopied, setShareCopied] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
 
   // -----------------------------------
   // Fetch and map user data from sessionStorage
@@ -389,48 +391,93 @@ export default function ArtistProfilePage() {
     }
   };
 
-  // Share profile function
-  const handleShareProfile = async () => {
-    try {
-      const profileUrl = `${window.location.origin}/profile/artist?id=${profileData?.id}`;
-      
-      // Try Web Share API if available (mobile)
-      if (navigator.share) {
-        await navigator.share({
-          title: `${profileData?.name}'s Profile - ArtistKatta`,
-          text: `Check out ${profileData?.name}'s profile on ArtistKatta`,
-          url: profileUrl,
-        });
-      } else {
-        // Fallback: Copy to clipboard
-        await navigator.clipboard.writeText(profileUrl);
-        setShareCopied(true);
-        toast({ 
-          title: "Link Copied!", 
-          description: "Profile link has been copied to clipboard." 
-        });
-        
-        setTimeout(() => setShareCopied(false), 2000);
+  // Click outside handler for share menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
+        setShowShareOptions(false);
       }
-    } catch (error) {
-      // Fallback: Copy to clipboard if share fails
-      try {
-        const profileUrl = `${window.location.origin}/profile/artist?id=${profileData?.id}`;
-        await navigator.clipboard.writeText(profileUrl);
-        setShareCopied(true);
-        toast({ 
-          title: "Link Copied!", 
-          description: "Profile link has been copied to clipboard." 
-        });
-        setTimeout(() => setShareCopied(false), 2000);
-      } catch (clipboardError) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to share profile. Please try again.",
-        });
-      }
+    };
+
+    if (showShareOptions) {
+      document.addEventListener("mousedown", handleClickOutside);
     }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showShareOptions]);
+
+  // Get profile URL
+  const getProfileUrl = () => {
+    return `${window.location.origin}/profile/artist?id=${profileData?.id}`;
+  };
+
+  // Get share text
+  const getShareText = () => {
+    return `Check out ${profileData?.name}'s profile on ArtistKatta: ${getProfileUrl()}`;
+  };
+
+  // Share via Email
+  const handleShareEmail = () => {
+    const subject = encodeURIComponent(`${profileData?.name}'s Profile - ArtistKatta`);
+    const body = encodeURIComponent(getShareText());
+    const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+    window.location.href = mailtoLink;
+    setShowShareOptions(false);
+    toast({
+      title: "Opening Email",
+      description: "Your email client should open with the profile link.",
+    });
+  };
+
+  // Share via WhatsApp
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(getShareText());
+    const whatsappLink = `https://wa.me/?text=${text}`;
+    window.open(whatsappLink, "_blank");
+    setShowShareOptions(false);
+    toast({
+      title: "Opening WhatsApp",
+      description: "Sharing profile via WhatsApp...",
+    });
+  };
+
+  // Share via SMS
+  const handleShareSMS = () => {
+    const text = encodeURIComponent(getShareText());
+    const smsLink = `sms:?body=${text}`;
+    window.location.href = smsLink;
+    setShowShareOptions(false);
+    toast({
+      title: "Opening SMS",
+      description: "Your SMS app should open with the profile link.",
+    });
+  };
+
+  // Copy to clipboard
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(getProfileUrl());
+      setShareCopied(true);
+      setShowShareOptions(false);
+      toast({
+        title: "Link Copied!",
+        description: "Profile link has been copied to clipboard.",
+      });
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to copy link. Please try again.",
+      });
+    }
+  };
+
+  // Share profile function - shows options menu
+  const handleShareProfile = () => {
+    setShowShareOptions(!showShareOptions);
   };
 
   // -----------------------------------
@@ -555,24 +602,62 @@ export default function ArtistProfilePage() {
           <div className="mb-8 flex-1">
             <div className="flex items-center space-x-4">
               <h1 className="text-3xl font-bold text-white">{profileData.name}</h1>
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-transparent border-white/20 text-white hover:bg-white/10"
-                onClick={handleShareProfile}
-              >
-                {shareCopied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share Profile
-                  </>
+              <div className="relative" ref={shareMenuRef}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-transparent border-white/20 text-white hover:bg-white/10"
+                  onClick={handleShareProfile}
+                >
+                  {shareCopied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share Profile
+                    </>
+                  )}
+                </Button>
+                
+                {showShareOptions && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-[#1f1f1f] border border-[#2f2f2f] rounded-lg shadow-lg z-50">
+                    <div className="py-1">
+                      <button
+                        onClick={handleShareEmail}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-[#2a2a2a] transition-colors"
+                      >
+                        <Mail className="h-4 w-4" />
+                        Share via Email
+                      </button>
+                      <button
+                        onClick={handleShareWhatsApp}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-[#2a2a2a] transition-colors"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Share via WhatsApp
+                      </button>
+                      <button
+                        onClick={handleShareSMS}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-[#2a2a2a] transition-colors"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        Share via SMS
+                      </button>
+                      <div className="border-t border-[#2f2f2f] my-1" />
+                      <button
+                        onClick={handleCopyLink}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-[#2a2a2a] transition-colors"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copy Link
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </Button>
+              </div>
             </div>
             <h2 className="mt-1 text-xl text-muted-foreground">{profileData.title}</h2>
             {(profileData.city || profileData.country) && (
